@@ -1,0 +1,27 @@
+{
+  "name": "gitflow-new",
+  "version": "0.1.0",
+  "description": "A simple CLI tool for Git Flow automation",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "gitflow": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.0.0",
+    "inquirer": "^12.4.1",
+    "shelljs": "^0.8.5"
+  },
+  "keywords": [
+    "git",
+    "gitflow",
+    "cli",
+    "version-control"
+  ],
+  "author": "Zsolt Fiddler",
+  "license": "MIT"
+}
