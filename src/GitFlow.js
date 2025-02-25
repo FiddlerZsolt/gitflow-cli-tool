@@ -602,7 +602,7 @@ class GitFlow {
         exitWithError('Please resolve merge conflicts and try again');
       }
 
-      if (gitFlow.configFileIsChanged()) {
+      if (gitFlow.configFileIsChanged() || !configFileExists) {
         console.info(`Commit & push configuration file to the ${mainBranch} branch...`);
         gitFlow.addCommand(`git add ${GitFlow.configFileName}`);
         gitFlow.addCommand(`git commit -m "Add gitflow configuration file"`);
