@@ -609,9 +609,8 @@ class GitFlow {
         gitFlow.addCommand(`git push origin ${mainBranch}`);
       }
 
-      // Create branches if the user opts to do so
+      // Create branches
       if (createBranchesOnRemote) {
-        // Create branches if they do not exist
         // Checkout main brach if not on main branch before commit config file
         if (gitFlow.getCurrentBranchName() !== mainBranch) {
           console.info(`Switching to main branch: '${mainBranch}'`);
@@ -619,9 +618,6 @@ class GitFlow {
         } else {
           console.info(`Main branch '${mainBranch}' already exists, and you are on it`);
         }
-
-        // Delete all local branches except main
-        // git branch | grep -v "main" | xargs git branch -D
 
         /**
          * Create develop branch
@@ -645,18 +641,20 @@ class GitFlow {
          * Create staging branch
          */
         // Check the staging branch is exists on remote, and if exists just pull it
-        if (gitFlow.branchExistsRemote(stagingBranch)) {
-          console.info(`'${developBranch}' branch is exists on remote, pull it...`);
-          gitFlow.addCommand(`git checkout ${stagingBranch}`);
-          gitFlow.addCommand(`git pull origin ${stagingBranch}`);
-        } else {
-          if (!gitFlow.branchExistsLocal(stagingBranch)) {
-            gitFlow.addCommand(`git branch -d ${stagingBranch}`);
-            console.info(`Creating staging branch: '${stagingBranch}'`);
-            gitFlow.addCommand(`git checkout -b ${stagingBranch} ${developBranch}`);
+        if (useStaging) {
+          if (gitFlow.branchExistsRemote(stagingBranch)) {
+            console.info(`'${stagingBranch}' branch is exists on remote, pull it...`);
+            gitFlow.addCommand(`git checkout ${stagingBranch}`);
+            gitFlow.addCommand(`git pull origin ${stagingBranch}`);
+          } else {
+            if (!gitFlow.branchExistsLocal(stagingBranch)) {
+              gitFlow.addCommand(`git branch -d ${stagingBranch}`);
+              console.info(`Creating staging branch: '${stagingBranch}'`);
+              gitFlow.addCommand(`git checkout -b ${stagingBranch} ${developBranch}`);
+            }
+            console.info(`Push staging branch to remote...`);
+            gitFlow.addCommand(`git push -u origin ${stagingBranch}`);
           }
-          console.info(`Push staging branch to remote...`);
-          gitFlow.addCommand(`git push -u origin ${stagingBranch}`);
         }
 
         // Switch to main branch
