@@ -620,14 +620,20 @@ class GitFlow {
           console.info(`Main branch '${mainBranch}' already exists, and you are on it`);
         }
 
+        // Delete all local branches except main
+        // git branch | grep -v "main" | xargs git branch -D
+
         /**
          * Create develop branch
          */
         // Check the develop branch is exists on remote, and if exists just pull it
         if (gitFlow.branchExistsRemote(developBranch)) {
+          console.info(`'${developBranch}' branch is exists on remote, pull it...`);
           gitFlow.addCommand(`git checkout ${developBranch}`);
+          gitFlow.addCommand(`git pull origin ${developBranch}`);
         } else {
-          if (!gitFlow.branchExistsLocal(developBranch)) {
+          if (gitFlow.branchExistsLocal(developBranch)) {
+            gitFlow.addCommand(`git branch -d ${developBranch}`);
             console.info(`Creating develop branch: '${developBranch}'`);
             gitFlow.addCommand(`git checkout -b ${developBranch} ${mainBranch}`);
           }
@@ -640,9 +646,12 @@ class GitFlow {
          */
         // Check the staging branch is exists on remote, and if exists just pull it
         if (gitFlow.branchExistsRemote(stagingBranch)) {
+          console.info(`'${developBranch}' branch is exists on remote, pull it...`);
           gitFlow.addCommand(`git checkout ${stagingBranch}`);
+          gitFlow.addCommand(`git pull origin ${stagingBranch}`);
         } else {
           if (!gitFlow.branchExistsLocal(stagingBranch)) {
+            gitFlow.addCommand(`git branch -d ${stagingBranch}`);
             console.info(`Creating staging branch: '${stagingBranch}'`);
             gitFlow.addCommand(`git checkout -b ${stagingBranch} ${developBranch}`);
           }
