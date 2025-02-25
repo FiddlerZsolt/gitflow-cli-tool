@@ -38,7 +38,7 @@ class GitFlow {
     developBranch: 'develop',
     useStaging: false,
     pushBranches: true,
-    createBranches: false,
+    createBranches: true,
     debug: false,
     prefixes: {
       feature: 'feature/',
@@ -195,7 +195,7 @@ class GitFlow {
   runCommands() {
     try {
       console.info(`Running commands...🚀`);
-      console.info(green('Commands:'), this.commands);
+      // console.info(green('Commands:'), this.commands);
 
       if (this.config.debug) {
         console.error('Debug mode enabled, do not run commands');
@@ -309,7 +309,6 @@ class GitFlow {
       console.error(`${red(`Merge conflicts detected in:`)}\n${conflicts.join(',\n')}\n`);
       return true;
     }
-    console.info(green('No merge conflicts detected.'));
     return false;
   }
 
@@ -469,6 +468,14 @@ class GitFlow {
     this.addCommand(`git push origin ${currentBranch}`);
   }
 
+  configFileIsChanged() {
+    const { stdout, stderr } = shell.exec(`git diff origin/main -- ${GitFlow.configFileName}`, { silent: true });
+    if (stderr) {
+      exitWithError(stderr);
+    }
+    return stdout.trim() !== '';
+  }
+
   // 🔹 Git Flow initialization
   /**
    * Gitflow init
@@ -480,10 +487,11 @@ class GitFlow {
       console.log(ART, '\n');
       console.log('🔧 Initializing Git Flow...\n');
       const useDefaultConfig = args?.yes;
+      const configFileExists = fs.existsSync(GitFlow.configFilePath);
 
       let defaultConfig = GitFlow.#defaultConfig;
       // Check if config exists and prompt for overwrite
-      if (fs.existsSync(GitFlow.configFilePath)) {
+      if (configFileExists) {
         const { overwrite } = await inquirer.prompt([
           {
             type: 'confirm',
@@ -545,12 +553,6 @@ class GitFlow {
             },
             {
               type: 'confirm',
-              name: 'pushBranches',
-              message: 'Do you want to push the new branches to remote?',
-              default: true,
-            },
-            {
-              type: 'confirm',
               name: 'createBranches',
               message: 'Do you want to create the branches now?',
               default: false,
@@ -561,8 +563,7 @@ class GitFlow {
 
       const gitFlow = new GitFlow(config);
 
-      const { mainBranch, developBranch, useStaging, stagingBranch, pushBranches, createBranches, debug } =
-        gitFlow.getConfig();
+      const { mainBranch, developBranch, useStaging, stagingBranch, createBranches, debug } = gitFlow.getConfig();
 
       if (debug) {
         console.error('Debug mode enabled do not save configuration file');
@@ -570,7 +571,6 @@ class GitFlow {
       }
 
       // Ask for create branches on remote
-
       const { createBranchesOnRemote } = await inquirer.prompt([
         {
           type: 'confirm',
@@ -580,20 +580,31 @@ class GitFlow {
         },
       ]);
 
-      // Checkout main branch if not on main branch before commit config file
-      if (gitFlow.getCurrentBranchName() !== mainBranch) gitFlow.addCommand(`git checkout ${mainBranch}`);
-
       // Create branch for the config file
-      if (!gitFlow.branchExistsLocal('main')) gitFlow.addCommand(`git checkout -b gitflow-config main`);
+      if (!gitFlow.branchExistsLocal(mainBranch)) {
+        console.info(`Creating '${mainBranch}' branch...`);
+        gitFlow.addCommand(`git checkout -b ${mainBranch}`);
+      }
+
+      // Checkout main branch if not on main branch before commit config file
+      if (gitFlow.getCurrentBranchName() !== mainBranch) {
+        console.info(`Switching to main branch: '${mainBranch}'`);
+        gitFlow.addCommand(`git checkout ${mainBranch}`);
+      }
 
       // Save configuration to file
-      console.info('Saving configuration...');
+      console.info('Create configuration file...');
+      console.info('Saving configuration file...');
       fs.writeFileSync(GitFlow.configFilePath, JSON.stringify(gitFlow.getConfig(), null, 2));
 
       // Add and commit configuration file to main branch and push
-      if (!gitFlow.checkWorkingTreeClean()) {
-        console.info('Committing configuration file');
-        gitFlow.addCommand(`git add .`);
+      if (gitFlow.checkMergeConflicts()) {
+        exitWithError('Please resolve merge conflicts and try again');
+      }
+
+      if (gitFlow.configFileIsChanged()) {
+        console.info(`Commit & push configuration file to the ${mainBranch} branch...`);
+        gitFlow.addCommand(`git add ${GitFlow.configFileName}`);
         gitFlow.addCommand(`git commit -m "Add gitflow configuration file"`);
         gitFlow.addCommand(`git push origin ${mainBranch}`);
       }
@@ -601,30 +612,42 @@ class GitFlow {
       // Create branches if the user opts to do so
       if (createBranchesOnRemote) {
         // Create branches if they do not exist
-
         // Checkout main brach if not on main branch before commit config file
         if (gitFlow.getCurrentBranchName() !== mainBranch) {
+          console.info(`Switching to main branch: '${mainBranch}'`);
           gitFlow.addCommand(`git checkout ${mainBranch}`);
         } else {
           console.info(`Main branch '${mainBranch}' already exists, and you are on it`);
         }
 
-        // Create develop branch
-        if (!gitFlow.branchExistsLocal(developBranch)) {
-          if (!gitFlow.branchExistsRemote(stagingBranch))
-            gitFlow.addCommand(`git checkout -b ${developBranch} ${mainBranch}`);
-          gitFlow.addCommand(`git push -u origin ${developBranch}`);
+        /**
+         * Create develop branch
+         */
+        // Check the develop branch is exists on remote, and if exists just pull it
+        if (gitFlow.branchExistsRemote(developBranch)) {
+          gitFlow.addCommand(`git checkout ${developBranch}`);
         } else {
-          console.info(`Develop branch '${developBranch}' already exists`);
+          if (!gitFlow.branchExistsLocal(developBranch)) {
+            console.info(`Creating develop branch: '${developBranch}'`);
+            gitFlow.addCommand(`git checkout -b ${developBranch} ${mainBranch}`);
+          }
+          console.info(`Push develop branch to remote...`);
+          gitFlow.addCommand(`git push -u origin ${developBranch}`);
         }
 
-        // Create staging branch
-        if (useStaging && gitFlow.branchExistsLocal(stagingBranch)) {
-          if (!gitFlow.branchExistsRemote(stagingBranch))
-            gitFlow.addCommand(`git checkout -b ${stagingBranch} ${developBranch}`);
-          gitFlow.addCommand(`git push -u origin ${stagingBranch}`);
+        /**
+         * Create staging branch
+         */
+        // Check the staging branch is exists on remote, and if exists just pull it
+        if (gitFlow.branchExistsRemote(stagingBranch)) {
+          gitFlow.addCommand(`git checkout ${stagingBranch}`);
         } else {
-          console.info(`Staging branch '${stagingBranch}' already exists`);
+          if (!gitFlow.branchExistsLocal(stagingBranch)) {
+            console.info(`Creating staging branch: '${stagingBranch}'`);
+            gitFlow.addCommand(`git checkout -b ${stagingBranch} ${developBranch}`);
+          }
+          console.info(`Push staging branch to remote...`);
+          gitFlow.addCommand(`git push -u origin ${stagingBranch}`);
         }
 
         // Switch to main branch
@@ -633,12 +656,12 @@ class GitFlow {
 
       gitFlow.runCommands();
 
-      console.log('\n✅ Git Flow has been initialized with branches:');
-      console.log(`  - Main: ${mainBranch}`);
-      console.log(`  - Develop: ${developBranch}`);
-      if (useStaging) console.log(`  - Staging: ${stagingBranch}`);
-      if (createBranches) console.log('All branch is ready!');
-      console.log(`\nConfiguration file: ${GitFlow.configFilePath}`);
+      console.info('\nGit Flow has been initialized with branches:');
+      console.info(`  - Main: ${mainBranch}`);
+      console.info(`  - Develop: ${developBranch}`);
+      if (useStaging) console.info(`  - Staging: ${stagingBranch}`);
+      if (createBranches) console.info('All branch is ready!');
+      console.info(`\nConfiguration file: ${GitFlow.configFilePath}`);
     } catch (error) {
       console.error(error?.message || error);
     }
@@ -665,10 +688,50 @@ class GitFlow {
     this.runCommands();
 
     console.info(` - You are now on branch '${green(featureBranchName)}'`);
-    console.info(`\nNow, start committing on your feature. When done, use:`);
+    console.info(`\nNow, start committing on your feature branch. When done, use:`);
+    console.info(`   gitflow feature:test ${featureBranchName}"`);
+
+    console.info(`\n💚 ${bold('Done')}\n`);
+  }
+
+  // TODO: Add test feature branch
+  /**
+   * Test a feature branch
+   *
+   * @param {string} name The name of the feature branch
+   * @returns {void}
+   * @throws {Error} If the feature branch does not exist
+   */
+  testFeature(name) {
+    if (!this.config.useStaging) {
+      exitWithError('Staging branch is not enabled in the configuration');
+    }
+    name = GitFlow.isValidBranchName(name);
+    const featureBranchName = `${this.config.prefixes.feature}${name}`;
+    if (!this.branchExistsLocal(featureBranchName)) {
+      exitWithError(`${featureBranchName} does not exist`);
+    }
+    if (this.branchesMatch(featureBranchName, this.config.developBranch)) {
+      exitWithError(`No commits yet on ${featureBranchName}`);
+    }
+
+    messageWithBorder(`🚀 Push '${featureBranchName}' to ${stagingBranch}`);
+    console.info('Summary of actions:');
+
+    this.checkoutToStaging();
+    this.mergeBranch(featureBranchName, this.config.stagingBranch);
+    this.runCommands();
+
+    console.info(` - You are now on branch '${green(stagingBranch)}'`);
+    console.info(`\nNow, start testing the feature. When done, use:`);
     console.info(`   gitflow feature:finish ${featureBranchName}"`);
 
     console.info(`\n💚 ${bold('Done')}\n`);
+
+    if (!this.config.pushBranches) {
+      console.info(red('Branches are not pushed to remote. Run `git push origin <branch>` to push'));
+      return;
+    }
   }
 
   /**
