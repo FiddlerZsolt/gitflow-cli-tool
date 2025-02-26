@@ -16,9 +16,16 @@ program
   .description('Start a new feature branch')
   .action((name) => new GitFlow().startFeature(name));
 
+// 🔹 Test feature branch
+program
+  .command('feature:test <name...>')
+  .description('Test a feature branch and merge to staging')
+  .action((name) => new GitFlow().testFeature(name));
+
+// 🔹 Finish feature branch
 program
   .command('feature:finish <name...>')
-  .description('Finish a feature branch and merge to staging or develop')
+  .description('Finish a feature branch and merge to develop')
   .action((name) => new GitFlow().finishFeature(name));
 
 // 🔹 Release branch management
@@ -59,6 +66,12 @@ program
   .command('switch <branch>')
   .description('Switch to a branch')
   .action((branch) => new GitFlow().checkoutBranch(branch));
+
+// 🔹 Push current branch to origin
+program
+  .command('push')
+  .description('Push current branch to origin')
+  .action(() => new GitFlow().pushCurrentBranch());
 
 // 🔹 Multiple argument test
 program

@@ -137,9 +137,7 @@ class GitFlow {
       if (!config.prefixes[prefix]) {
         exitWithError(`Missing required prefix: ${prefix}`);
       }
-      if (!GitFlow.isValidBranchName(config.prefixes[prefix])) {
-        exitWithError(`Invalid '${prefix}' prefix: ${config.prefixes[prefix]}`);
-      }
+      GitFlow.isValidBranchName(config.prefixes[prefix]);
     }
 
     // Boolean validations
@@ -182,7 +180,7 @@ class GitFlow {
     if (!isValid) {
       exitWithError(`Invalid branch name '${branchName}'. Use only letters, numbers, hyphens and underscores.`);
     }
-    return isValid;
+    return branchName;
   }
 
   // 🔹 Command execution
@@ -435,6 +433,18 @@ class GitFlow {
     }
   }
 
+  /**
+   * Push the current branch to the remote repository
+   * @returns {void}
+   * @throws {Error} If the push fails
+   * @returns {void}
+   */
+  pushBranch() {
+    const currentBranch = this.getCurrentBranchName();
+    console.info(`Push ${green(currentBranch)} branch to remote`);
+    this.addCommand(`git push origin ${currentBranch}`);
+  }
+
   deleteAllLocalBranches() {
     const { stdout, stderr } = shell.exec('git branch --list', { silent: true });
     if (stderr) {
@@ -454,18 +464,6 @@ class GitFlow {
     console.info('Deleting local branches...');
     this.addCommand(`git branch | grep -v "main" | xargs git branch -D`);
     this.runCommands();
-  }
-
-  /**
-   * Push the current branch to the remote repository
-   * @returns {void}
-   * @throws {Error} If the push fails
-   * @returns {void}
-   */
-  pushBranch() {
-    const currentBranch = this.getCurrentBranchName();
-    console.info(`Push ${green(currentBranch)} branch to remote`);
-    this.addCommand(`git push origin ${currentBranch}`);
   }
 
   configFileIsChanged() {
@@ -674,6 +672,13 @@ class GitFlow {
     }
   }
 
+  pushCurrentBranch() {
+    const currentBranch = this.getCurrentBranchName();
+    this.addCommand(`git push origin ${currentBranch}`);
+    this.runCommands();
+    messageWithBorder(`🚀 Pushed ${currentBranch} to remote`);
+  }
+
   // 🔹 Feature branch management
   /**
    * Start a new feature branch
@@ -701,7 +706,6 @@ class GitFlow {
     console.info(`\n💚 ${bold('Done')}\n`);
   }
 
-  // TODO: Add test feature branch
   /**
    * Test a feature branch
    *
@@ -722,23 +726,19 @@ class GitFlow {
       exitWithError(`No commits yet on ${featureBranchName}`);
     }
 
-    messageWithBorder(`🚀 Push '${featureBranchName}' to ${stagingBranch}`);
+    messageWithBorder(`🚀 Push '${featureBranchName}' to ${this.config.stagingBranch}`);
     console.info('Summary of actions:');
 
     this.checkoutToStaging();
     this.mergeBranch(featureBranchName, this.config.stagingBranch);
+    this.pushBranch();
     this.runCommands();
 
-    console.info(` - You are now on branch '${green(stagingBranch)}'`);
+    console.info(` - You are now on branch '${green(this.config.stagingBranch)}'`);
     console.info(`\nNow, start testing the feature. When done, use:`);
     console.info(`   gitflow feature:finish ${featureBranchName}"`);
 
     console.info(`\n💚 ${bold('Done')}\n`);
-
-    if (!this.config.pushBranches) {
-      console.info(red('Branches are not pushed to remote. Run `git push origin <branch>` to push'));
-      return;
-    }
   }
 
   /**
@@ -758,21 +758,14 @@ class GitFlow {
       exitWithError(`No commits yet on ${featureBranchName}`);
     }
 
-    messageWithBorder(`🚀 Finishing ${featureBranchName}`);
     this.checkoutToDevelop();
     this.mergeBranch(featureBranchName, this.config.developBranch);
-    if (this.config.useStaging) {
-      this.checkoutToStaging();
-      this.mergeBranch(featureBranchName, this.config.stagingBranch);
-    }
+    this.pushBranch();
     this.deleteBranch(featureBranchName);
 
     this.runCommands();
 
-    if (!this.config.pushBranches) {
-      console.info(red('Branches are not pushed to remote. Run `git push origin <branch>` to push'));
-      return;
-    }
+    messageWithBorder(`🚀 ${featureBranchName} finished.`);
   }
 
   // 🔹 Release branch management
