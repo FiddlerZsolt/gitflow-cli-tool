@@ -393,7 +393,7 @@ class GitFlow {
     if (this.branchExistsLocal(branchName)) {
       exitWithError(`${branchName} already exists`);
     }
-    console.info(` - A new branch '${green(branchName)}' was created, based on '${green(fromBranch)}'`);
+    console.info(` - A new branch ${green(branchName)} was created, based on ${green(fromBranch)}`);
     this.addCommand(`git checkout -b ${branchName} ${fromBranch}`);
   }
 
@@ -693,16 +693,15 @@ class GitFlow {
       exitWithError(`${featureBranchName} already exists`);
     }
     messageWithBorder(`🚀 Start new feature`);
-    console.info('Summary of actions:');
 
     this.checkoutToDevelop();
     this.createBranch(featureBranchName, this.config.developBranch);
     this.runCommands();
 
-    console.info(` - You are now on branch '${green(featureBranchName)}'`);
+    console.info('Summary of actions:');
+    console.info(` - You are now on branch ${green(featureBranchName)}`);
     console.info(`\nNow, start committing on your feature branch. When done, use:`);
-    console.info(`   gitflow feature:test ${featureBranchName}"`);
-
+    console.info(`   gitflow feature:test ${name}`);
     console.info(`\n💚 ${bold('Done')}\n`);
   }
 
@@ -727,16 +726,16 @@ class GitFlow {
     }
 
     messageWithBorder(`🚀 Push '${featureBranchName}' to ${this.config.stagingBranch}`);
-    console.info('Summary of actions:');
 
     this.checkoutToStaging();
     this.mergeBranch(featureBranchName, this.config.stagingBranch);
     this.pushBranch();
     this.runCommands();
 
-    console.info(` - You are now on branch '${green(this.config.stagingBranch)}'`);
+    console.info('Summary of actions:');
+    console.info(` - You are now on branch ${green(this.config.stagingBranch)}`);
     console.info(`\nNow, start testing the feature. When done, use:`);
-    console.info(`   gitflow feature:finish ${featureBranchName}"`);
+    console.info(`   gitflow feature:finish ${name}`);
 
     console.info(`\n💚 ${bold('Done')}\n`);
   }
@@ -765,7 +764,7 @@ class GitFlow {
 
     this.runCommands();
 
-    messageWithBorder(`🚀 ${featureBranchName} finished.`);
+    messageWithBorder(`🚀 ${name} finished.`);
   }
 
   // 🔹 Release branch management
